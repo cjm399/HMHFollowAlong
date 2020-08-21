@@ -14,7 +14,6 @@ struct win32_offscreen_buffer
     int Width;
     int Height;
     int Pitch;
-    int BytesPerPixel;
 };
 
 struct win32_window_dimension
@@ -61,7 +60,7 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer * Buffer, int _width,
 {
     Buffer->Height = _height;
     Buffer->Width = _width;
-    Buffer->BytesPerPixel = 4;
+    int BytesPerPixel = 4;
     
     if(Buffer->Memory)
     {
@@ -75,16 +74,14 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer * Buffer, int _width,
     Buffer->Info.bmiHeader.biBitCount = 32;
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
     
-    SIZE_T bufferSize = Buffer->BytesPerPixel * (_width * _height);
+    SIZE_T bufferSize = BytesPerPixel * (_width * _height);
     Buffer->Memory = VirtualAlloc(0, bufferSize, MEM_COMMIT, PAGE_READWRITE);
-    Buffer->Pitch = _width*Buffer->BytesPerPixel;
+    Buffer->Pitch = _width*BytesPerPixel;
 }
 
 internal void Win32CopyBufferToWindow(HDC DeviceContext,
                                       int WindowWidth, int WindowHeight,
-                                      win32_offscreen_buffer Buffer,
-                                      int _x, int _y,
-                                      int _width, int _height)
+                                      win32_offscreen_buffer Buffer)
 {
     StretchDIBits(DeviceContext,
                   /*_x, _y, _width, _height,
@@ -138,10 +135,8 @@ Win32MainWindowCallback(
             win32_window_dimension dimensions = Win32GetWindowDimension(window);
             Win32CopyBufferToWindow(DeviceContext,
                                     dimensions.Width, dimensions.Height,
-                                    GlobalBackBuffer,
-                                    x, y,
-                                    width, height);
-            EndPaint(window, &paint);
+                                    GlobalBackBuffer);
+                EndPaint(window, &paint);
         }   break;
             
         default:
@@ -213,9 +208,7 @@ int WINAPI WinMain(HINSTANCE instance,
                 win32_window_dimension dimensions = Win32GetWindowDimension(window);
                 Win32CopyBufferToWindow(DeviceContext,
                                         dimensions.Width, dimensions.Height,
-                                        GlobalBackBuffer,
-                                        0, 0,
-                                        dimensions.Width, dimensions.Height);
+                                        GlobalBackBuffer);
             }            
         }
         else
