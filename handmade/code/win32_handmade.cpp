@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <winuser.h>
 #include <stdint.h>
+#include <xinput.h>
 
 #define internal static 
 #define local_persist static 
@@ -10,86 +11,118 @@
 struct win32_offscreen_buffer
 {
     BITMAPINFO Info;
-    void *Memory;
-    int Width;
-    int Height;
-    int Pitch;
+    void *memory;
+    int width;
+    int height;
+    int pitch;
 };
 
 struct win32_window_dimension
 {
-    int Height;
-    int Width;
+    int height;
+    int width;
 };
 
-//TODO: this is global for now!
+#define X_Input_Get_State(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_Input_Get_State(x_input_get_state);
+X_Input_Get_State(XInputGetStateStub)
+{
+    return(0);
+}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_Input_Set_State(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_Input_Set_State(x_input_set_state);
+X_Input_Set_State(XInputSetStateStub)
+{
+    return(0);
+}
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
 global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
-                                                       
-win32_window_dimension
+
+
+internal void Win32LoadXInput()
+{
+    HMODULE xInputLib = LoadLibraryA("xinput1_3.dll");
+    if(xInputLib)
+    {
+        XInputGetState = (x_input_get_state *)GetProcAddress(xInputLib, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(xInputLib, "XInputSetState");
+    }
+}
+
+
+internal win32_window_dimension
 Win32GetWindowDimension(HWND window)
 {
-    win32_window_dimension Result;
+    win32_window_dimension result;
     
     RECT clientRect;
     GetClientRect(window, &clientRect);
-    Result.Width = clientRect.right - clientRect.left;
-    Result.Height = clientRect.bottom - clientRect.top;
+    result.width = clientRect.right - clientRect.left;
+    result.height = clientRect.bottom - clientRect.top;
 
-    return(Result);
+    return(result);
 }                                                       
 
-internal void WindowGradient(win32_offscreen_buffer Buffer, uint8_t XOffset, uint8_t YOffset)
+internal void WindowGradient(win32_offscreen_buffer *buffer, uint8_t xOffset, uint8_t yOffset)
 {    
-    uint8_t *Row = (uint8_t *)Buffer.Memory;
-    for(int Y = 0; Y < Buffer.Height; Y++)
+    uint8_t *row = (uint8_t *)buffer->memory;
+    for(int Y = 0; Y < buffer->height; Y++)
     {
-        uint32_t *Pixel = (uint32_t *) Row;
-        for(int X = 0; X < Buffer.Width; X++)
+        uint32_t *pixel = (uint32_t *) row;
+        for(int X = 0; X < buffer->width; X++)
         {
             uint8_t red = 255;
-            uint8_t green = X+XOffset;
-            uint8_t blue = Y+YOffset;
-            *Pixel++ = (((red << 16) | (green << 8)) | blue);
+            uint8_t green = X+xOffset;
+            uint8_t blue = Y+yOffset;
+            *pixel++ = (((red << 16) | (green << 8)) | blue);
         }
-        Row+= Buffer.Pitch;
+        row+= buffer->pitch;
     }
 }
 
-internal void Win32ResizeDIBSection(win32_offscreen_buffer * Buffer, int _width, int _height)
+internal void
+Win32ResizeDIBSection(win32_offscreen_buffer *buffer,
+                      int _width, int _height)
 {
-    Buffer->Height = _height;
-    Buffer->Width = _width;
-    int BytesPerPixel = 4;
+    buffer->height = _height;
+    buffer->width = _width;
+    int bytesPerPixel = 4;
     
-    if(Buffer->Memory)
+    if(buffer->memory)
     {
-        VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
+        VirtualFree(buffer->memory, 0, MEM_RELEASE);
     }
     
-    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
-    Buffer->Info.bmiHeader.biWidth = _width;
-    Buffer->Info.bmiHeader.biHeight = -_height;
-    Buffer->Info.bmiHeader.biPlanes = 1;
-    Buffer->Info.bmiHeader.biBitCount = 32;
-    Buffer->Info.bmiHeader.biCompression = BI_RGB;
+    buffer->Info.bmiHeader.biSize = sizeof(buffer->Info.bmiHeader);
+    buffer->Info.bmiHeader.biWidth = _width;
+    buffer->Info.bmiHeader.biHeight = -_height;
+    buffer->Info.bmiHeader.biPlanes = 1;
+    buffer->Info.bmiHeader.biBitCount = 32;
+    buffer->Info.bmiHeader.biCompression = BI_RGB;
     
-    SIZE_T bufferSize = BytesPerPixel * (_width * _height);
-    Buffer->Memory = VirtualAlloc(0, bufferSize, MEM_COMMIT, PAGE_READWRITE);
-    Buffer->Pitch = _width*BytesPerPixel;
+    SIZE_T bufferSize = bytesPerPixel * (_width * _height);
+    buffer->memory = VirtualAlloc(0, bufferSize, MEM_COMMIT, PAGE_READWRITE);
+    buffer->pitch = _width*bytesPerPixel;
 }
 
-internal void Win32CopyBufferToWindow(HDC DeviceContext,
-                                      int WindowWidth, int WindowHeight,
-                                      win32_offscreen_buffer Buffer)
+internal void
+Win32CopyBufferToWindow(HDC deviceContext,
+                        int windowWidth, int windowHeight,
+                        win32_offscreen_buffer *buffer)
 {
-    StretchDIBits(DeviceContext,
+    StretchDIBits(deviceContext,
                   /*_x, _y, _width, _height,
                     _x, _y, _width, _height,*/
-                  0, 0, WindowWidth, WindowHeight,
-                  0, 0, Buffer.Width, Buffer.Height,
-                  Buffer.Memory,
-                  &Buffer.Info,
+                  0, 0, windowWidth, windowHeight,
+                  0, 0, buffer->width, buffer->height,
+                  buffer->memory,
+                  &buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
 }    
 
@@ -126,21 +159,21 @@ Win32MainWindowCallback(
         case WM_PAINT:
         {
             PAINTSTRUCT paint;
-            HDC DeviceContext = BeginPaint(window, &paint);
+            HDC deviceContext = BeginPaint(window, &paint);
             int x = paint.rcPaint.left;
             int y = paint.rcPaint.top;
             int height = paint.rcPaint.bottom - paint.rcPaint.top;
             int width = paint.rcPaint.right - paint.rcPaint.left;
             
             win32_window_dimension dimensions = Win32GetWindowDimension(window);
-            Win32CopyBufferToWindow(DeviceContext,
-                                    dimensions.Width, dimensions.Height,
-                                    GlobalBackBuffer);
-                EndPaint(window, &paint);
+            Win32CopyBufferToWindow(deviceContext,
+                                    dimensions.width, dimensions.height,
+                                    &GlobalBackBuffer);
+            EndPaint(window, &paint);
         }   break;
             
         default:
-            result = DefWindowProc(window,message,wParam,lParam);
+            result = DefWindowProc(window, message, wParam, lParam);
             break;
     }
     return (result);
@@ -155,7 +188,8 @@ int WINAPI WinMain(HINSTANCE instance,
 {
 
     WNDCLASSEXA windowClass = {};
-    
+
+    Win32LoadXInput();
     //win32_window_dimension dimensions = Win32GetWindowDimension(window);
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);    
 
@@ -186,10 +220,10 @@ int WINAPI WinMain(HINSTANCE instance,
 
         if(window)
         {
-            HDC DeviceContext = GetDC(window);
+            HDC deviceContext = GetDC(window);
             MSG message;
             GlobalRunning = true;
-            uint8_t XOffset = 0, YOffset = 0;
+            uint8_t xOffset = 0, yOffset = 0;
             while(GlobalRunning)
             {
                 
@@ -203,12 +237,31 @@ int WINAPI WinMain(HINSTANCE instance,
                     DispatchMessageA(&message);
                     
                 }
-                WindowGradient(GlobalBackBuffer, XOffset++, YOffset++);
+                for(DWORD controllerIndex = 0;
+                    controllerIndex < XUSER_MAX_COUNT;
+                    ++controllerIndex)
+                {
+                    
+                    XINPUT_STATE inputState;
+                    DWORD inputReturnCode = XInputGetState(controllerIndex, &inputState);
+                    if(inputReturnCode == ERROR_SUCCESS)
+                    {
+                        XINPUT_GAMEPAD *gamePad = &inputState.Gamepad;
+                        xOffset += gamePad->sThumbLX >> 12;
+                        yOffset += gamePad->sThumbLY >> 12;
+                    }
+                    else
+                    {
+                        //TODO Add error handling, figure out what to show user.
+                    } 
+                }
+                
+                WindowGradient(&GlobalBackBuffer, xOffset, yOffset);
 
                 win32_window_dimension dimensions = Win32GetWindowDimension(window);
-                Win32CopyBufferToWindow(DeviceContext,
-                                        dimensions.Width, dimensions.Height,
-                                        GlobalBackBuffer);
+                Win32CopyBufferToWindow(deviceContext,
+                                        dimensions.width, dimensions.height,
+                                        &GlobalBackBuffer);
             }            
         }
         else
