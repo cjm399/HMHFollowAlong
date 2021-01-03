@@ -1,18 +1,19 @@
-#include <windows.h>
-#include <winuser.h>
 #include <stdint.h>
-#include <xinput.h>
-#include <dsound.h>
-#include <math.h>
 
 #define internal static 
 #define local_persist static 
 #define global_variable static 
 #define PI_32 3.14159265358
 
-
 typedef int32_t bool32;
 
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <winuser.h>
+#include <xinput.h>
+#include <dsound.h>
+#include <math.h>
 
 struct win32_offscreen_buffer
 {
@@ -28,7 +29,6 @@ struct win32_window_dimension
 	int height;
 	int width;
 };
-
 
 struct win32_sound_output
 {
@@ -174,24 +174,6 @@ Win32GetWindowDimension(HWND _window)
 	result.height = clientRect.bottom - clientRect.top;
     
 	return(result);
-}
-
-internal void 
-WindowGradient(win32_offscreen_buffer *_buffer, uint8_t _xOffset, uint8_t _yOffset)
-{
-	uint8_t *row = (uint8_t *)_buffer->memory;
-	for (int Y = 0; Y < _buffer->height; Y++)
-	{
-		uint32_t *pixel = (uint32_t *)row;
-		for (int X = 0; X < _buffer->width; X++)
-		{
-			uint8_t red = 255;
-			uint8_t green = X + _xOffset;
-			uint8_t blue = Y + _yOffset;
-			*pixel++ = (((red << 16) | (green << 8)) | blue);
-		}
-		row += _buffer->pitch;
-	}
 }
 
 internal void
@@ -458,8 +440,8 @@ int WINAPI WinMain(HINSTANCE _instance,
 						xOffset += gamePad->sThumbLX / 4096;
 						yOffset += gamePad->sThumbLY / 4096;
                         
-                        //soundOutput.toneHz = 256 +  yOffset;
-                        //soundOutput.wavePeriod =soundOutput.samplesPerSecond / soundOutput.toneHz;
+                        soundOutput.toneHz = 256 +  yOffset;
+                        soundOutput.wavePeriod =soundOutput.samplesPerSecond / soundOutput.toneHz;
 					}
 					else
 					{
@@ -487,7 +469,14 @@ int WINAPI WinMain(HINSTANCE _instance,
                     
                     Win32FillSoundBuffer(&soundOutput, lockByte, bytesToWrite);
                 }
-				WindowGradient(&GlobalBackBuffer, ++xOffset, ++yOffset);
+                
+                game_offscreen_buffer graphicsBuffer{};
+                graphicsBuffer.width = GlobalBackBuffer.width;
+                graphicsBuffer.height = GlobalBackBuffer.height;
+                graphicsBuffer.pitch = GlobalBackBuffer.pitch;
+                graphicsBuffer.memory = GlobalBackBuffer.memory;
+                
+				GameUpdateAndRender(&graphicsBuffer, xOffset, yOffset);
 				win32_window_dimension dimensions = Win32GetWindowDimension(window);
 				Win32CopyBufferToWindow(deviceContext,
                                         dimensions.width, dimensions.height,

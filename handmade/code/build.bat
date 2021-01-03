@@ -2,5 +2,5 @@
 
 mkdir h:\build
 pushd h:\build
-cl -Zi h:\handmade\code\win32_handmade.cpp user32.lib Gdi32.lib dsound.lib
+cl -FC -Zi h:\handmade\code\win32_handmade.cpp user32.lib Gdi32.lib dsound.lib
 popd
