@@ -13,6 +13,9 @@ typedef int32_t bool32;
 #include <winuser.h>
 #include <xinput.h>
 #include <dsound.h>
+#include <stdio.h>
+
+//NOTE(chris): Will remove/replace with custom functionality
 #include <math.h>
 
 struct win32_offscreen_buffer
@@ -337,6 +340,10 @@ int WINAPI WinMain(HINSTANCE _instance,
                    int _showCode)
 
 {
+    //NOTE(chris): Can initialize perfCountFrquency once at start.
+    LARGE_INTEGER perfCountFrqResult;
+    QueryPerformanceFrequency(&perfCountFrqResult);
+    int64_t perfCountFrq = perfCountFrqResult.QuadPart;
     
 	WNDCLASSEXA windowClass = {};
     
@@ -395,7 +402,11 @@ int WINAPI WinMain(HINSTANCE _instance,
             //PlayBuffer
 			GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
             
-			while (GlobalRunning)
+            LARGE_INTEGER startTimer;
+            QueryPerformanceCounter(&startTimer);
+            uint64_t startClock  = __rdtsc();
+            
+            while (GlobalRunning)
 			{
                 
 				while (PeekMessage(&message, window, 0, 0, PM_REMOVE))
@@ -477,10 +488,29 @@ int WINAPI WinMain(HINSTANCE _instance,
                 graphicsBuffer.memory = GlobalBackBuffer.memory;
                 
 				GameUpdateAndRender(&graphicsBuffer, xOffset, yOffset);
-				win32_window_dimension dimensions = Win32GetWindowDimension(window);
+                win32_window_dimension dimensions = Win32GetWindowDimension(window);
 				Win32CopyBufferToWindow(deviceContext,
                                         dimensions.width, dimensions.height,
                                         &GlobalBackBuffer);
+                
+                
+                LARGE_INTEGER endTimer;
+                QueryPerformanceCounter(&endTimer);
+                
+                int64_t counterElapsed = endTimer.QuadPart - startTimer.QuadPart;
+                double msPerFrame = ((1000.0 * (double)counterElapsed) / (double)(perfCountFrq));
+                double fpsCounter  = 1000.0/msPerFrame;
+                uint64_t currClock = __rdtsc();
+                uint64_t clockDiff = currClock - startClock;
+                double mcpf = (double)clockDiff / 1000000.0;
+                
+                char Buffer[256];
+                sprintf(Buffer, "%.02f ms/f, %.02f f/s, %.02f mc/f\n", msPerFrame, fpsCounter, mcpf);
+                OutputDebugStringA(Buffer);
+                
+                startTimer = endTimer;
+                startClock = currClock;
+                
 			}
 		}
 		else
