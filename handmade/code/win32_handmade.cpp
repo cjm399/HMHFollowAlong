@@ -5,6 +5,7 @@
 #define global_variable static 
 #define PI_32 3.14159265358
 
+
 typedef int32_t bool32;
 
 #include "handmade.cpp"
@@ -358,6 +359,14 @@ Win32FillSoundBuffer(win32_sound_output *_destBuffer,
     
 }
 
+internal void 
+Win32ProcessDigitalButton(game_button_state *_newState, game_button_state *_oldState, 
+                          XINPUT_GAMEPAD *_gamePad, DWORD _buttonBits)
+{
+    _newState->isDown = ((_gamePad->wButtons & _buttonBits) == _buttonBits);
+    _newState->halfStepCount = (_oldState->isDown == _newState->isDown) ? 0 : 1;
+}
+
 int WINAPI WinMain(HINSTANCE _instance,
                    HINSTANCE _previousInstance,
                    LPSTR _commandLine,
@@ -434,6 +443,10 @@ int WINAPI WinMain(HINSTANCE _instance,
             QueryPerformanceCounter(&startTimer);
             uint64_t startClock  = __rdtsc();
             
+            game_input input[2];
+            game_input *gameInput = &input[0];
+            game_input *oldInput = &input[1];
+            
             while (GlobalRunning)
             {
                 
@@ -449,38 +462,66 @@ int WINAPI WinMain(HINSTANCE _instance,
                 }
                 //TODO(chris): Should we poll this more frequent?
                 //TODO(chris): This is bad performance! Only poll plugged in devices to prevent stall
+                int maxControllerCount = XUSER_MAX_COUNT;
+                if(maxControllerCount > ArrayCount(gameInput->allInput))
+                {
+                    maxControllerCount = ArrayCount(gameInput->allInput);
+                }
+                
                 for (DWORD controllerIndex = 0;
-                     controllerIndex < XUSER_MAX_COUNT;
+                     controllerIndex < maxControllerCount;
                      ++controllerIndex)
                 {
+                    game_controller_input *oldController = &oldInput->allInput[controllerIndex];
+                    game_controller_input *newController = &gameInput->allInput[controllerIndex];
                     
                     XINPUT_STATE inputState;
+                    ZeroMemory(&inputState, sizeof(XINPUT_STATE));
                     DWORD inputReturnCode = XInputGetState(controllerIndex, &inputState);
                     if (inputReturnCode == ERROR_SUCCESS)
                     {
                         XINPUT_GAMEPAD *gamePad = &inputState.Gamepad;
                         
-                        bool32 up = (gamePad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                        bool32 down = (gamePad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                        bool32 left = (gamePad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                        bool32 right = (gamePad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                        bool32 start = (gamePad->wButtons & XINPUT_GAMEPAD_START);
-                        bool32 back = (gamePad->wButtons & XINPUT_GAMEPAD_BACK);
-                        bool32 leftShoulder = (gamePad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-                        bool32 rightShoulder = (gamePad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-                        bool32 aButton = (gamePad->wButtons & XINPUT_GAMEPAD_A);
-                        bool32 bButton = (gamePad->wButtons & XINPUT_GAMEPAD_B);
-                        bool32 xButton = (gamePad->wButtons & XINPUT_GAMEPAD_X);
-                        bool32 yButton = (gamePad->wButtons & XINPUT_GAMEPAD_Y);
+                        Win32ProcessDigitalButton(&newController->dUp, &oldController->dUp, gamePad, XINPUT_GAMEPAD_DPAD_UP);
+                        Win32ProcessDigitalButton(&newController->dDown, &oldController->dDown, gamePad, XINPUT_GAMEPAD_DPAD_DOWN);
+                        Win32ProcessDigitalButton(&newController->dRight, &oldController->dRight, gamePad, XINPUT_GAMEPAD_DPAD_RIGHT);
+                        Win32ProcessDigitalButton(&newController->dLeft, &oldController->dLeft, gamePad, XINPUT_GAMEPAD_DPAD_LEFT);
+                        Win32ProcessDigitalButton(&newController->start, &oldController->start, gamePad, XINPUT_GAMEPAD_START);
+                        Win32ProcessDigitalButton(&newController->back, &oldController->back, gamePad, XINPUT_GAMEPAD_BACK);
+                        Win32ProcessDigitalButton(&newController->leftShoulder, &oldController->leftShoulder, gamePad, XINPUT_GAMEPAD_LEFT_SHOULDER);
+                        Win32ProcessDigitalButton(&newController->rightShoulder, &oldController->rightShoulder, gamePad, XINPUT_GAMEPAD_RIGHT_SHOULDER);
+                        Win32ProcessDigitalButton(&newController->bottomButton, &oldController->bottomButton, gamePad, XINPUT_GAMEPAD_A);
+                        Win32ProcessDigitalButton(&newController->rightButton, &oldController->rightButton, gamePad, XINPUT_GAMEPAD_B);
+                        Win32ProcessDigitalButton(&newController->leftButton, &oldController->leftButton, gamePad, XINPUT_GAMEPAD_X);
+                        Win32ProcessDigitalButton(&newController->topButton, &oldController->topButton, gamePad, XINPUT_GAMEPAD_Y);
                         
-                        int16_t stickX = gamePad->sThumbLX;
-                        int16_t stickY = gamePad->sThumbLY;
+                        float xOffset = gamePad->sThumbLX;
+                        float yOffset = gamePad->sThumbLY;
                         
-                        xOffset += gamePad->sThumbLX / 4096;
-                        yOffset += gamePad->sThumbLY / 4096;
+                        //NOTE(chris):Normalize stick from -1 to 1
+                        if(xOffset >= 0)
+                        {
+                            xOffset /= 32767.0f;
+                        }
+                        else
+                        {
+                            xOffset /= 32768.0f;
+                        }
+                        if(yOffset >= 0)
+                        {
+                            yOffset /= 32767.0f;
+                        }
+                        else
+                        {
+                            yOffset /= 32768.0f;
+                        }
                         
-                        soundOutput.toneHz = 512 + (int)(256.0f * ((float)stickY / 30000.0f));
-                        soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.toneHz;
+                        newController->startX = oldController->endX;
+                        newController->endX = xOffset;
+                        
+                        newController->startY = oldController->endY;
+                        newController->endY = yOffset;
+                        
                     }
                     else
                     {
@@ -517,8 +558,6 @@ int WINAPI WinMain(HINSTANCE _instance,
                 soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
                 soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                 
-                GameFillSoundBuffer(&soundBuffer, soundOutput.toneHz);
-                
                 if(isSoundValid)
                 {
                     Win32FillSoundBuffer(&soundOutput, lockByte, bytesToWrite, &soundBuffer);
@@ -530,7 +569,8 @@ int WINAPI WinMain(HINSTANCE _instance,
                 graphicsBuffer.pitch = GlobalBackBuffer.pitch;
                 graphicsBuffer.memory = GlobalBackBuffer.memory;
                 
-                GameUpdateAndRender(&graphicsBuffer, xOffset, yOffset);
+                GameUpdateAndRender(&graphicsBuffer, &soundBuffer, gameInput);
+                
                 win32_window_dimension dimensions = Win32GetWindowDimension(window);
                 Win32CopyBufferToWindow(deviceContext,
                                         dimensions.width, dimensions.height,
@@ -553,6 +593,10 @@ int WINAPI WinMain(HINSTANCE _instance,
                 
                 startTimer = endTimer;
                 startClock = currClock;
+                
+                game_input* tmp = gameInput;
+                gameInput = oldInput;
+                oldInput = tmp;
                 
             }
         }
