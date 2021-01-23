@@ -437,7 +437,21 @@ int WINAPI WinMain(HINSTANCE _instance,
             int16_t *soundSamples = (int16_t *)VirtualAlloc(0, 
                                                             soundOutput.secondaryBufferSize,
                                                             MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            game_memory gameMemory{};
+            gameMemory.permanentMemorySize = Mebibytes(64);
+            gameMemory.transientMemorySize = Gibibytes(4);
+            int totalMemorySize = gameMemory.permanentMemorySize + gameMemory.transientMemorySize;
             
+#if HANDMADE_INTERNAL
+            LPVOID baseAddress = (LPVOID)Tebibytes(2);
+#else
+            LPVOID baseAddress = 0;
+#endif
+            
+            gameMemory.permanentStorage = VirtualAlloc(baseAddress, totalMemorySize, 
+                                                       MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            gameMemory.transientStorage = ((uint8_t *)gameMemory.permanentStorage 
+                                           + gameMemory.permanentMemorySize);
             
             LARGE_INTEGER startTimer;
             QueryPerformanceCounter(&startTimer);
@@ -521,7 +535,7 @@ int WINAPI WinMain(HINSTANCE _instance,
                         
                         newController->startY = oldController->endY;
                         newController->endY = yOffset;
-                        
+                        newController->isAnalog = false;
                     }
                     else
                     {
@@ -569,7 +583,7 @@ int WINAPI WinMain(HINSTANCE _instance,
                 graphicsBuffer.pitch = GlobalBackBuffer.pitch;
                 graphicsBuffer.memory = GlobalBackBuffer.memory;
                 
-                GameUpdateAndRender(&graphicsBuffer, &soundBuffer, gameInput);
+                GameUpdateAndRender(&gameMemory, &graphicsBuffer, &soundBuffer, gameInput);
                 
                 win32_window_dimension dimensions = Win32GetWindowDimension(window);
                 Win32CopyBufferToWindow(deviceContext,

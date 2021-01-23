@@ -2,6 +2,17 @@
 
 #ifndef HANDMADE_H
 
+#define Kibibytes(value) ((value) * 1024LL)
+#define Mebibytes(value) ((Kibibytes(value)) * 1024LL)
+#define Gibibytes(value) ((Mebibytes(value)) * 1024LL)
+#define Tebibytes(value) ((Gibibytes(value)) * 1024LL)
+
+#if HANDMADE_SLOW
+#define Assert(expression) if(!(expression)) { *(int *)0 = 0;}
+#else
+#define Assert(expression)
+#endif
+
 #define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 struct game_button_state
@@ -12,6 +23,7 @@ struct game_button_state
 
 struct game_controller_input
 {
+    bool32 isAnalog;
     float startX;
     float startY;
     
@@ -72,9 +84,29 @@ struct game_offscreen_buffer
     int pitch;
 };
 
+struct game_memory
+{
+    bool32 isInitialized;
+    int64_t permanentMemorySize;
+    int64_t transientMemorySize;
+    void *permanentStorage;
+    void *transientStorage;
+};
+
 internal void GameFillSoundBuffer(game_sound_buffer *_buffer, int toneHz);
 
-internal void GameUpdateAndRender(game_offscreen_buffer *_renderBuffer, game_sound_buffer *_soundBuffer, game_input *_playerInput);
+internal void GameUpdateAndRender(game_memory *_memory, game_offscreen_buffer *_renderBuffer, game_sound_buffer *_soundBuffer, game_input *_playerInput);
+
+//
+// Note(chris): Platform layer does not need to know about game_state, move this later
+//
+
+struct game_state
+{
+    int toneHz;
+    int yOffset;
+    void *memory;
+};
 
 #define HANDMADE_H
 #endif //HANDMADE_H
