@@ -55,7 +55,7 @@ GameUpdateAndRender(game_memory* _memory, game_offscreen_buffer *_renderBuffer, 
         
         file_data data {};
         
-        data = DEBUGPlatformReadEntireFile("nonExistingFile.txt");
+        data = DEBUGPlatformReadEntireFile(__FILE__);
         
         //NOTE(chris): If file fails, we have 0 size memory.
         if(data.size != 0)
@@ -63,7 +63,6 @@ GameUpdateAndRender(game_memory* _memory, game_offscreen_buffer *_renderBuffer, 
             DEBUGPlatformWriteEntireFile(data.contents, data.size, "testWriteFile.txt");
             DEBUGPlatformFreeMemory(data.contents);
         }
-        _memory->isInitialized = true;
     }
     game_controller_input *controllerInput = &_playerInput->player0Input;
     

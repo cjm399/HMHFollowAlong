@@ -13,6 +13,13 @@
 #define Assert(expression)
 #endif
 
+inline uint32_t
+SafeTruncateUInt64(uint64_t value)
+{
+    Assert(value <= UINT32_MAX);
+    return (uint32_t)value;
+}
+
 #define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 struct game_button_state
@@ -93,6 +100,13 @@ struct game_memory
     void *transientStorage;
 };
 
+
+struct file_data
+{
+    int64_t size;
+    void *contents;
+};
+
 internal void GameFillSoundBuffer(game_sound_buffer *_buffer, int toneHz);
 
 internal void GameUpdateAndRender(game_memory *_memory, game_offscreen_buffer *_renderBuffer, game_sound_buffer *_soundBuffer, game_input *_playerInput);
@@ -107,6 +121,19 @@ struct game_state
     int yOffset;
     void *memory;
 };
+
+
+/*
+Things the game serves the platform layer
+*/
+internal file_data
+DEBUGPlatformReadEntireFile(char *_fileName);
+
+internal void
+DEBUGPlatformFreeMemory(void *_memory);
+
+internal bool32
+DEBUGPlatformWriteEntireFile(void* _buffer, int64_t _bufferSize, char *_fileName);
 
 #define HANDMADE_H
 #endif //HANDMADE_H

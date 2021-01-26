@@ -36,13 +36,13 @@ struct win32_sound_output
 {
     int samplesPerSecond;
     int toneHz;
-    int16_t toneVolume;
-    uint32_t secondaryBufferIndex;
-    int wavePeriod;
     int bytesPerSample;
-    int secondaryBufferSize;
+    int wavePeriod;
     float tSine;
+    int secondaryBufferSize;
     int latencySampleCount;
+    uint32_t secondaryBufferIndex;
+    int16_t toneVolume;
 };
 
 
@@ -74,6 +74,98 @@ global_variable bool32 GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
+//NOTE(chris): This is a debug function! Make sure to replace later
+#if HANDMADE_INTERNAL
+
+internal file_data
+DEBUGPlatformReadEntireFile(char *_fileName)
+{
+    file_data fileData {};
+    
+    HANDLE fileHandle = CreateFileA(_fileName, GENERIC_READ, FILE_SHARE_READ, 0,
+                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,0);
+    if(fileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER fileSize;
+        if(GetFileSizeEx(fileHandle, &fileSize))
+        {
+            DWORD fileSize32 = SafeTruncateUInt64(fileSize.QuadPart);
+            fileData.contents = VirtualAlloc(0, fileSize32, 
+                                             MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            DWORD bytesRead;
+            if(ReadFile(fileHandle, fileData.contents, fileSize32, &bytesRead, 0) && bytesRead == fileSize32)
+            {
+                //TODO: Logging
+                fileData.size = bytesRead;
+                OutputDebugStringA("ReadFile!");
+            }
+            else
+            {
+                //TODO(chris): Logging
+                DEBUGPlatformFreeMemory(fileData.contents);
+            }
+        }
+        if(CloseHandle(fileHandle))
+        {
+            //TODO(chris): Logging.
+        }
+        else
+        {
+            //TODO(chris): Logging.
+        }
+    }
+    else
+    {
+        //TODO(chris): Logging
+    }
+    return fileData;
+}
+
+internal void
+DEBUGPlatformFreeMemory(void *_memory)
+{
+    if(_memory)
+    {
+        VirtualFree(_memory, 0, MEM_RELEASE);
+    }
+}
+
+internal bool32
+DEBUGPlatformWriteEntireFile(void* _buffer, int64_t _bufferSize, char *_fileName)
+{
+    bool32 result = false;
+    HANDLE fileHandle = CreateFileA(_fileName, GENERIC_WRITE, 0, 0,
+                                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    if(fileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD bytesWritten;
+        if(WriteFile(fileHandle, _buffer, _bufferSize, &bytesWritten, 0) && bytesWritten == _bufferSize)
+        {
+            OutputDebugStringA("Wrote To File!");
+            result = true;
+            //TODO:Logging
+        }
+        else
+        {
+            //TODO:Logging
+        }
+        if(CloseHandle(fileHandle))
+        {
+            //TODO:Logging
+        }
+        else
+        {
+            //TODO:Logging
+        }
+    }
+    else
+    {
+        //TODO(chris):Logging
+    }
+    return result;
+}
+
+#endif
 
 internal void Win32LoadXInput()
 {
