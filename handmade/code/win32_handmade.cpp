@@ -131,7 +131,7 @@ DEBUGPlatformFreeMemory(void *_memory)
 }
 
 internal bool32
-DEBUGPlatformWriteEntireFile(void* _buffer, int64_t _bufferSize, char *_fileName)
+DEBUGPlatformWriteEntireFile(void* _buffer, uint64_t _bufferSize, char *_fileName)
 {
     bool32 result = false;
     HANDLE fileHandle = CreateFileA(_fileName, GENERIC_WRITE, 0, 0,
@@ -139,7 +139,8 @@ DEBUGPlatformWriteEntireFile(void* _buffer, int64_t _bufferSize, char *_fileName
     if(fileHandle != INVALID_HANDLE_VALUE)
     {
         DWORD bytesWritten;
-        if(WriteFile(fileHandle, _buffer, _bufferSize, &bytesWritten, 0) && bytesWritten == _bufferSize)
+        DWORD bytesToWrite = SafeTruncateUInt64(_bufferSize);
+        if(WriteFile(fileHandle, _buffer, bytesToWrite, &bytesWritten, 0) && bytesWritten == bytesToWrite)
         {
             OutputDebugStringA("Wrote To File!");
             result = true;
@@ -172,7 +173,7 @@ internal void Win32LoadXInput()
 	HMODULE xInputLib = LoadLibraryA("xinput1_4.dll");
 	if (!xInputLib)
 	{
-		HMODULE xInputLib = LoadLibraryA("xinput1_3.dll");
+		xInputLib = LoadLibraryA("xinput1_3.dll");
 	}
 	if (xInputLib)
 	{
@@ -345,7 +346,7 @@ Win32MainWindowCallback(
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32_t VKCode = _wParam;
+            uint32_t VKCode = (uint32_t)_wParam;
             bool32 altKeyWasDown = (_lParam & (1 << 29));
             if ((VKCode == VK_F4) && altKeyWasDown)
             {
@@ -430,7 +431,7 @@ Win32FillSoundBuffer(win32_sound_output *_destBuffer,
         int16_t *sourceSample = (int16_t *) _sourceBuffer->samples;
         
         int16_t *destSample = (int16_t *)region1;
-        for (int i = 0; i < region1Size / _destBuffer->bytesPerSample; ++i)
+        for (DWORD i = 0; i < region1Size / _destBuffer->bytesPerSample; ++i)
         {
             *destSample++ = *sourceSample++;
             *destSample++ = *sourceSample++;
@@ -438,7 +439,7 @@ Win32FillSoundBuffer(win32_sound_output *_destBuffer,
         }
         
         destSample = (int16_t *)region2;
-        for (int i = 0; i < region2Size / _destBuffer->bytesPerSample; ++i)
+        for (DWORD i = 0; i < region2Size / _destBuffer->bytesPerSample; ++i)
         {
             *destSample++ = *sourceSample++;
             *destSample++ = *sourceSample++;
@@ -508,9 +509,6 @@ int WINAPI WinMain(HINSTANCE _instance,
             
             GlobalRunning = true;
             
-            //Graphics Test
-            uint8_t xOffset = 0, yOffset = 0;
-            
             //Audio Test
             win32_sound_output soundOutput = {};
             soundOutput.samplesPerSecond = 48000;
@@ -532,7 +530,7 @@ int WINAPI WinMain(HINSTANCE _instance,
             game_memory gameMemory{};
             gameMemory.permanentMemorySize = Mebibytes(64);
             gameMemory.transientMemorySize = Gibibytes(4);
-            int totalMemorySize = gameMemory.permanentMemorySize + gameMemory.transientMemorySize;
+            uint64_t totalMemorySize = gameMemory.permanentMemorySize + gameMemory.transientMemorySize;
             
 #if HANDMADE_INTERNAL
             LPVOID baseAddress = (LPVOID)Tebibytes(2);
@@ -540,7 +538,7 @@ int WINAPI WinMain(HINSTANCE _instance,
             LPVOID baseAddress = 0;
 #endif
             
-            gameMemory.permanentStorage = VirtualAlloc(baseAddress, totalMemorySize, 
+            gameMemory.permanentStorage = VirtualAlloc(baseAddress, (size_t)totalMemorySize, 
                                                        MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             gameMemory.transientStorage = ((uint8_t *)gameMemory.permanentStorage 
                                            + gameMemory.permanentMemorySize);
@@ -568,7 +566,7 @@ int WINAPI WinMain(HINSTANCE _instance,
                 }
                 //TODO(chris): Should we poll this more frequent?
                 //TODO(chris): This is bad performance! Only poll plugged in devices to prevent stall
-                int maxControllerCount = XUSER_MAX_COUNT;
+                DWORD maxControllerCount = XUSER_MAX_COUNT;
                 if(maxControllerCount > ArrayCount(gameInput->allInput))
                 {
                     maxControllerCount = ArrayCount(gameInput->allInput);
@@ -638,8 +636,8 @@ int WINAPI WinMain(HINSTANCE _instance,
                 DWORD playCursor;
                 DWORD writeCursor;
                 DWORD targetCursor;
-                DWORD lockByte;
-                DWORD bytesToWrite;
+                DWORD lockByte = 0;
+                DWORD bytesToWrite = 0;
                 bool32 isSoundValid = false;
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor)))
                 {
@@ -694,7 +692,7 @@ int WINAPI WinMain(HINSTANCE _instance,
                 double mcpf = (double)clockDiff / 1000000.0;
                 
                 char Buffer[256];
-                sprintf(Buffer, "%.02f ms/f, %.02f f/s, %.02f mc/f\n", msPerFrame, fpsCounter, mcpf);
+                wsprintf(Buffer, "%.02f ms/f, %.02f f/s, %.02f mc/f\n", msPerFrame, fpsCounter, mcpf);
                 OutputDebugStringA(Buffer);
                 
                 startTimer = endTimer;

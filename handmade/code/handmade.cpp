@@ -18,7 +18,7 @@ GameFillSoundBuffer(game_sound_buffer *_buffer, int toneHz)
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
-        tSine += 2.0f*PI_32*1.0f/(float)wavePeriod;
+        tSine += float(2.0f*PI_32*1.0f/(float)wavePeriod);
     }
 }
 
@@ -32,8 +32,8 @@ RenderWeirdGradient(game_offscreen_buffer *_buffer, int _xOffset, int _yOffset)
         for (int X = 0; X < _buffer->width; X++)
         {
             uint8_t red = 255;
-            uint8_t green = X + _xOffset;
-            uint8_t blue = Y + _yOffset;
+            uint8_t green = (uint8_t)(X + _xOffset);
+            uint8_t blue = (uint8_t)(Y + _yOffset);
             *pixel++ = (((red << 16) | (green << 8)) | blue);
         }
         row += _buffer->pitch;

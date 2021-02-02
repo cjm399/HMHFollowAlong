@@ -94,8 +94,8 @@ struct game_offscreen_buffer
 struct game_memory
 {
     bool32 isInitialized;
-    int64_t permanentMemorySize;
-    int64_t transientMemorySize;
+    uint64_t permanentMemorySize;
+    uint64_t transientMemorySize;
     void *permanentStorage;
     void *transientStorage;
 };
@@ -103,7 +103,7 @@ struct game_memory
 
 struct file_data
 {
-    int64_t size;
+    uint64_t size;
     void *contents;
 };
 
@@ -133,7 +133,7 @@ internal void
 DEBUGPlatformFreeMemory(void *_memory);
 
 internal bool32
-DEBUGPlatformWriteEntireFile(void* _buffer, int64_t _bufferSize, char *_fileName);
+DEBUGPlatformWriteEntireFile(void* _buffer, uint64_t _bufferSize, char *_fileName);
 
 #define HANDMADE_H
 #endif //HANDMADE_H
