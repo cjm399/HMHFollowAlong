@@ -28,6 +28,9 @@ struct game_button_state
     bool32 isDown;
 };
 
+//TODO(chris): When writing a game engine to ship
+//People will want to know the specifics of the controller being used.
+//Maybe don't do a virtual controller, but just send up the data exactly as recieved.
 struct game_controller_input
 {
     bool32 isAnalog;

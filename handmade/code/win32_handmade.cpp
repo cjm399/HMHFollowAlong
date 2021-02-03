@@ -346,12 +346,7 @@ Win32MainWindowCallback(
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32_t VKCode = (uint32_t)_wParam;
-            bool32 altKeyWasDown = (_lParam & (1 << 29));
-            if ((VKCode == VK_F4) && altKeyWasDown)
-            {
-                GlobalRunning = false;
-            }
+            Assert(!"Keyboard input came through non-dispatch message!");
         } break;
         
         
@@ -460,6 +455,13 @@ Win32ProcessDigitalButton(game_button_state *_newState, game_button_state *_oldS
     _newState->halfStepCount = (_oldState->isDown == _newState->isDown) ? 0 : 1;
 }
 
+internal void
+Win32ProcessKeyboardButton(game_button_state *_newState, bool32 _isDown)
+{
+    _newState->isDown = _isDown;
+    ++_newState->halfStepCount;
+}
+
 int WINAPI WinMain(HINSTANCE _instance,
                    HINSTANCE _previousInstance,
                    LPSTR _commandLine,
@@ -553,6 +555,9 @@ int WINAPI WinMain(HINSTANCE _instance,
             
             while (GlobalRunning)
             {
+                game_controller_input *keyboardController = &gameInput->player0Input;
+                game_controller_input zeroController = {};
+                *keyboardController = zeroController;
                 
                 while (PeekMessage(&message, window, 0, 0, PM_REMOVE))
                 {
@@ -560,8 +565,89 @@ int WINAPI WinMain(HINSTANCE _instance,
                     {
                         GlobalRunning = false;
                     }
-                    TranslateMessage(&message);
-                    DispatchMessageA(&message);
+                    switch(message.message)
+                    {
+                        case WM_SYSKEYDOWN:
+                        case WM_SYSKEYUP:
+                        case WM_KEYDOWN:
+                        case WM_KEYUP:
+                        {
+                            uint32_t VKCode = (uint32_t)message.wParam;
+                            bool32 altKeyWasDown = (message.lParam & (1 << 29));
+                            bool32 wasDown = ((message.lParam & (1 << 30)) != 0);
+                            bool32 isDown = ((message.lParam & (1 << 31)) == 0);
+                            
+                            if(wasDown != isDown)
+                            {
+                                switch(VKCode)
+                                {
+                                    case 'W':
+                                    {
+                                        keyboardController->endY = (isDown ? 1.0f : 0.0f);
+                                        break;
+                                    }
+                                    case 'S':
+                                    {
+                                        keyboardController->endY = (isDown ? -1.0f : 0.0f);
+                                        break;
+                                    }
+                                    case 'A':
+                                    {
+                                        keyboardController->endX = (isDown ? -1.0f : 0.0f);
+                                        break;
+                                    }
+                                    case 'D':
+                                    {
+                                        keyboardController->endX = (isDown ? 1.0f : 0.0f);
+                                        break;
+                                    }
+                                    case 'E':
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->rightShoulder, isDown);
+                                    }
+                                    case 'Q':
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->leftShoulder, isDown);
+                                        break;
+                                    }
+                                    case VK_UP:
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->topButton, isDown);
+                                        break;
+                                    }
+                                    case VK_DOWN:
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->bottomButton, isDown);
+                                        break;
+                                    }
+                                    case VK_RIGHT:
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->rightButton, isDown);
+                                        break;
+                                    }
+                                    case VK_LEFT:
+                                    {
+                                        Win32ProcessKeyboardButton(&keyboardController->leftButton, isDown);
+                                        break;
+                                    }
+                                    case VK_F4:
+                                    {
+                                        if (altKeyWasDown)
+                                        {
+                                            GlobalRunning = false;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            TranslateMessage(&message);
+                            DispatchMessageA(&message);
+                        }
+                    }
                     
                 }
                 //TODO(chris): Should we poll this more frequent?

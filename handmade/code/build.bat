@@ -16,5 +16,6 @@ REM -Od : Do no Optimizations
 REM -FC : Display full path of source files
 REM -Z7 : Generates Debugging info, safer than -Zi
  
-cl -MT -nologo -EHa- -Gm- -GR- -WX -W4 -wd4201 -wd4100 -wd4189 -Oi -Od -FC -Z7 -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1  H:\handmade\code\win32_handmade.cpp /link -subsystem:windows,5.10 user32.lib Gdi32.lib
+cl -MT -nologo -EHa- -Gm- -GR- -WX -W4 -wd4201 -wd4100 -wd4189 -Oi -Od -FC -Zi -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1  H:\handmade\code\win32_handmade.cpp /link -subsystem:windows,5.10 user32.lib Gdi32.lib
+
 popd
