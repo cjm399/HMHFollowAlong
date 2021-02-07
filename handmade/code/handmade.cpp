@@ -65,12 +65,42 @@ GameUpdateAndRender(game_memory* _memory, game_offscreen_buffer *_renderBuffer, 
         }
         _memory->isInitialized = true;
     }
-    game_controller_input *controllerInput = &_playerInput->player0Input;
     
-    gameState->toneHz = 256 + (int)(128.0f * controllerInput->endY);
-    if(controllerInput->bottomButton.isDown)
+    for(uint8_t controllerIndex = 0; 
+        controllerIndex < GetControllerCount(_playerInput);
+        ++controllerIndex)
     {
-        gameState->yOffset += 1;
+        game_controller_input *controllerInput = GetControllerInput(_playerInput, controllerIndex);
+        
+        if(controllerInput->isConnected)
+        {
+            if(controllerInput->isAnalog)
+            {
+                gameState->toneHz = 256;
+                
+                if(controllerInput->sDown.isDown)
+                {
+                    gameState->toneHz-=128;
+                }
+                if(controllerInput->sUp.isDown)
+                {
+                    gameState->toneHz += 128;
+                }
+            }
+            else
+            {
+                gameState->toneHz = 256 + (int)(128.0f * controllerInput->avgRSY);
+            }
+            
+            if(controllerInput->actionTop.isDown)
+            {
+                gameState->yOffset += 1;
+            }
+            if(controllerInput->actionBottom.isDown)
+            {
+                gameState->yOffset -= 1;
+            }
+        }
     }
     RenderWeirdGradient(_renderBuffer, 0, gameState->yOffset);
     GameFillSoundBuffer(_soundBuffer, gameState->toneHz);

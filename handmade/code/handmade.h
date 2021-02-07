@@ -33,25 +33,17 @@ struct game_button_state
 //Maybe don't do a virtual controller, but just send up the data exactly as recieved.
 struct game_controller_input
 {
+    bool32 isConnected;
     bool32 isAnalog;
-    float startX;
-    float startY;
-    
-    float minX;
-    float minY;
-    
-    float maxX;
-    float maxY;
-    
-    float endX;
-    float endY;
+    float avgRSX;
+    float avgRSY;
     
     union{
         struct{
-            game_button_state bottomButton;
-            game_button_state rightButton;
-            game_button_state leftButton;
-            game_button_state topButton;
+            game_button_state actionBottom;
+            game_button_state actionRight;
+            game_button_state actionLeft;
+            game_button_state actionTop;
             game_button_state leftShoulder;
             game_button_state rightShoulder;
             game_button_state start;
@@ -60,8 +52,15 @@ struct game_controller_input
             game_button_state dRight;
             game_button_state dLeft;
             game_button_state dUp;
+            game_button_state sDown;
+            game_button_state sLeft;
+            game_button_state sRight;
+            game_button_state sUp;
+            
+            //NOTE(chris): All buttons must be added above this point.
+            game_button_state TERMINAL;
         };
-        game_button_state *buttonInputs[12];
+        game_button_state buttonInputs[16];
     };
 };
 
@@ -70,14 +69,28 @@ struct game_input
     union{
         struct
         {
+            game_controller_input keyboardInput;
             game_controller_input player0Input;
             game_controller_input player1Input;
             game_controller_input player2Input;
             game_controller_input player3Input;
         };
-        game_controller_input allInput[4];
+        game_controller_input allInput[5];
     };
 };
+
+inline uint32_t 
+GetControllerCount(game_input *_input)
+{
+    return ArrayCount(_input->allInput);
+}
+
+inline game_controller_input *
+GetControllerInput(game_input *_input, uint32_t _index)
+{
+    Assert(GetControllerCount(_input) > _index);
+    return &_input->allInput[_index]; 
+}
 
 struct game_sound_buffer
 {
