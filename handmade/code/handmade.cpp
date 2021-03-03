@@ -40,6 +40,22 @@ RenderWeirdGradient(game_offscreen_buffer *_buffer, int _xOffset, int _yOffset)
     }
 }
 
+internal void 
+ClearScreen(game_offscreen_buffer *_buffer, uint32_t _color)
+{
+    uint8_t *row = (uint8_t *)_buffer->memory;
+    for (int Y = 0; Y < _buffer->height; Y++)
+    {
+        uint32_t *pixel = (uint32_t *)row;
+        for (int X = 0; X < _buffer->width; X++)
+        {
+            *pixel++ = _color;
+        }
+        row += _buffer->pitch;
+    }
+}
+
+
 #include <windows.h>
 
 internal void 
@@ -102,6 +118,7 @@ GameUpdateAndRender(game_memory* _memory, game_offscreen_buffer *_renderBuffer, 
             }
         }
     }
-    RenderWeirdGradient(_renderBuffer, 0, gameState->yOffset);
+    ClearScreen(_renderBuffer, 0x00000000);
+    //RenderWeirdGradient(_renderBuffer, 0, gameState->yOffset);
     GameFillSoundBuffer(_soundBuffer, gameState->toneHz);
 }
